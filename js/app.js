@@ -1,29 +1,31 @@
-import { MEMBERS, ADMINS, identityByEmail } from "./config.js";
+import { MEMBERS, ADMINS, identityByEmail, ALLOWED_DOMAIN } from "./config.js";
 import { SLOTS, requiredFor, toMin } from "./schedule.js";
 import { initData, getMode, subscribeRange, setBlock, onAuth, signInGoogle, signOutUser } from "./data.js";
 
 const WD = ["일", "월", "화", "수", "목", "금", "토"];
 const TOTAL = MEMBERS.length;
 
-// localhost 에서 ?dev 로 로그인 게이트를 건너뛰는 개발용 우회 (운영 도메인에서는 절대 동작하지 않음)
+// localhost 에서 ?dev(=email) 로 로그인 게이트를 건너뛰는 개발용 우회 (운영 도메인에서는 절대 동작 안 함)
 const DEV_BYPASS = location.hostname === "localhost" && new URLSearchParams(location.search).has("dev");
 
 const state = {
   view: "monthly",
   anchor: new Date(),
   authUser: null,
-  currentUser: localStorage.getItem("cx_user") || null,
-  identityLocked: false,    // 이메일로 본인이 확정되면 true (이름 변경 불가)
-  isAdmin: false,           // 관리자(조회 전용) 계정
-  records: [],              // 현재 범위의 블락 전체
-  bySlot: new Map(),        // key -> [record]
-  pending: new Set(),       // 선택 중 'date|slot'
+  currentUser: localStorage.getItem("cx_user") || null,  // 로그인한 사람의 표시 이름
+  role: "member",           // member | admin | viewer
+  editTarget: localStorage.getItem("cx_user") || null,   // 실제로 편집 중인 팀원 이름
+  identityLocked: false,    // 이메일로 신원이 확정되면 true
+  records: [],
+  bySlot: new Map(),
+  pending: new Set(),
   unsub: null,
 };
 
+const canEdit = () => state.role === "member" || state.role === "admin";
+
 // ── 날짜 유틸 ──
-const ymd = (d) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const isToday = (d) => ymd(d) === ymd(new Date());
 function mondayOf(d) { const x = new Date(d); return addDays(x, -((x.getDay() + 6) % 7)); }
@@ -42,17 +44,14 @@ function visibleDays() {
 const key = (date, slot) => `${date}|${slot}`;
 const recordsAt = (date, slot) => state.bySlot.get(key(date, slot)) || [];
 const blockedCount = (date, slot) => recordsAt(date, slot).length;
-const maxBlockable = (required) => TOTAL - required;           // 이 시간에 블락 가능한 최대 인원
+const maxBlockable = (required) => TOTAL - required;
 const isFull = (date, slot, required) => blockedCount(date, slot) >= maxBlockable(required);
-const iBlocked = (date, slot) => state.currentUser && recordsAt(date, slot).some((r) => r.member === state.currentUser);
+const targetBlocked = (date, slot) => state.editTarget && recordsAt(date, slot).some((r) => r.member === state.editTarget);
 const isStaged = (date, slot) => state.pending.has(key(date, slot));
 
 const colorOf = (name) => (MEMBERS.find((m) => m.name === name) || ADMINS.find((a) => a.name === name))?.color || "#888";
 
-function fmtDur(mins) {
-  const h = Math.floor(mins / 60), m = mins % 60;
-  return `${h ? h + "시간" : ""}${m ? (h ? " " : "") + m + "분" : ""}` || "0분";
-}
+function fmtDur(mins) { const h = Math.floor(mins / 60), m = mins % 60; return `${h ? h + "시간" : ""}${m ? (h ? " " : "") + m + "분" : ""}` || "0분"; }
 const endOf = (slot) => { const t = toMin(slot) + 15; return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; };
 
 // ── 렌더 ──
@@ -109,7 +108,7 @@ function renderGrid() {
 
       const recs = recordsAt(date, slot);
       const full = isFull(date, slot, req.required);
-      const mine = iBlocked(date, slot);
+      const mine = targetBlocked(date, slot);
       const staged = isStaged(date, slot);
       let cls = availClass(date, slot, req.required);
       if (full) cls = "full";
@@ -118,9 +117,8 @@ function renderGrid() {
 
       if (daily) {
         const chips = recs.map((r) => {
-          const c = MEMBERS.find((m) => m.name === r.member)?.color || "#888";
           const rsn = r.reason ? `<span class="rsn">· ${escapeHtml(r.reason)}</span>` : "";
-          return `<span class="chip" style="background:${c}" title="${escapeHtml(r.reason || "")}">${r.member}${rsn}</span>`;
+          return `<span class="chip" style="background:${colorOf(r.member)}" title="${escapeHtml(r.reason || "")}">${r.member}${rsn}</span>`;
         }).join("");
         const tag = full ? "마감" : `가능 ${TOTAL - recs.length}/${TOTAL}`;
         cells.push(`<div class="gcell slot daily ${cls}" data-date="${date}" data-slot="${slot}">${chips}<span class="avail-tag">${tag}</span></div>`);
@@ -134,33 +132,65 @@ function renderGrid() {
 }
 
 function renderSide() {
-  const has = !!state.currentUser;
-  document.getElementById("memberPanel").hidden = has;
-  document.getElementById("teamPanel").hidden = has;
-  document.getElementById("welcomeBox").hidden = !has;
-  document.getElementById("myPanel").hidden = !has;
+  const role = state.role;
+  const identified = !!state.currentUser;
+  const isAdmin = role === "admin";
+  const isViewer = role === "viewer";
+  const manual = !state.identityLocked;      // 로컬/미등록: 직접 이름 선택 방식
 
-  // 멤버 선택 버튼
-  document.getElementById("memberPicker").innerHTML = MEMBERS.map(
-    (m) => `<button data-member="${m.name}"><span class="dot" style="background:${m.color}"></span>${m.name}</button>`
-  ).join("");
-  // 팀원 범례
+  // 이름 선택 화면: 관리자(편집 대상 선택) 또는 수동 미선택 상태
+  const showPicker = isAdmin || (manual && !identified);
+  document.getElementById("memberPanel").hidden = !showPicker;
+  document.getElementById("teamPanel").hidden = identified && !isAdmin;
+  document.getElementById("welcomeBox").hidden = !identified;
+  document.getElementById("myPanel").hidden = !identified;
+
+  // 선택 버튼 (편집 대상 강조)
+  document.getElementById("memberPicker").innerHTML = MEMBERS.map((m) => {
+    const active = m.name === state.editTarget ? " active" : "";
+    return `<button class="${active.trim()}" data-member="${m.name}"><span class="dot" style="background:${m.color}"></span>${m.name}</button>`;
+  }).join("");
   document.getElementById("memberLegend").innerHTML = MEMBERS.map(
     (m) => `<li><span class="dot" style="background:${m.color}"></span>${m.name}</li>`
   ).join("");
 
-  if (has) {
+  // 피커 제목
+  const mpTitle = document.getElementById("memberPanelTitle");
+  const mpSub = document.getElementById("memberPanelSub");
+  if (isAdmin) {
+    mpTitle.textContent = "편집할 팀원 선택";
+    mpSub.textContent = "관리자: 팀원을 골라 그 사람의 개인시간을 추가/취소/조정할 수 있어요.";
+  } else {
+    mpTitle.textContent = "나는 누구?";
+    mpSub.textContent = "이름을 선택하면 시간대를 눌러 개인시간을 신청할 수 있어요.";
+  }
+
+  if (identified) {
     document.getElementById("wbAvatar").textContent = state.currentUser.slice(-2);
     document.getElementById("wbAvatar").style.background = colorOf(state.currentUser);
     document.getElementById("wbName").textContent = state.currentUser;
-    document.getElementById("changeUserBtn").hidden = state.identityLocked; // 이메일 확정이면 변경 숨김
-    if (state.isAdmin) {
-      document.getElementById("myCount").hidden = true;
-      document.getElementById("myBlocksHint").hidden = false;
-      document.getElementById("myBlocksHint").textContent = "조회 전용 관리자 계정입니다. (개인시간 신청 불가)";
+    const badge = document.getElementById("wbRole");
+    badge.hidden = role === "member";
+    badge.textContent = isAdmin ? "관리자" : (isViewer ? "조회 전용" : "");
+    // 이름 바꾸기: 로컬/수동으로 직접 선택했을 때만
+    document.getElementById("changeUserBtn").hidden = !(manual && identified);
+
+    const title = document.getElementById("myPanelTitle");
+    const hint = document.getElementById("myBlocksHint");
+    const countEl = document.getElementById("myCount");
+    if (isViewer) {
+      title.textContent = "안내";
+      countEl.hidden = true; hint.hidden = false;
+      hint.textContent = "조회 전용 계정입니다. 개인시간은 팀원 계정에서 신청하고, 조정은 관리자에게 요청하세요.";
+      document.getElementById("myBlocks").innerHTML = "";
+    } else if (isAdmin && !state.editTarget) {
+      title.textContent = "편집 대상";
+      countEl.hidden = true; hint.hidden = false;
+      hint.textContent = "위에서 편집할 팀원을 먼저 선택하세요.";
       document.getElementById("myBlocks").innerHTML = "";
     } else {
-      document.getElementById("myCount").hidden = false;
+      title.textContent = isAdmin ? `${state.editTarget} 개인시간 (편집)` : "내 개인시간 신청";
+      countEl.hidden = false;
       renderMyBlocks();
     }
   }
@@ -171,10 +201,9 @@ function renderMyBlocks() {
   const hint = document.getElementById("myBlocksHint");
   const countEl = document.getElementById("myCount");
 
-  // 내 신청을 groupId 로 묶기
   const groups = new Map();
   for (const r of state.records) {
-    if (r.member !== state.currentUser) continue;
+    if (r.member !== state.editTarget) continue;
     const g = r.groupId || `s_${r.date}_${r.slot}`;
     if (!groups.has(g)) groups.set(g, []);
     groups.get(g).push(r);
@@ -187,7 +216,7 @@ function renderMyBlocks() {
   items.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
 
   countEl.textContent = items.length;
-  if (items.length === 0) { hint.hidden = false; list.innerHTML = ""; return; }
+  if (items.length === 0) { hint.hidden = false; hint.textContent = "표시된 기간에 신청한 시간이 없습니다."; list.innerHTML = ""; return; }
   hint.hidden = true;
   list.innerHTML = items.map((it) => {
     const [, mo, da] = it.date.split("-");
@@ -202,7 +231,7 @@ function renderSaveBar() {
   const bar = document.getElementById("saveBar");
   const n = state.pending.size;
   bar.hidden = n === 0;
-  if (n > 0) document.getElementById("saveBarText").textContent = `선택한 시간 ${n}개 (${fmtDur(n * 15)})`;
+  if (n > 0) document.getElementById("saveBarText").textContent = `선택한 시간 ${n}개 (${fmtDur(n * 15)})` + (state.role === "admin" ? ` · ${state.editTarget}` : "");
 }
 
 function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
@@ -222,10 +251,13 @@ function resubscribe() {
 
 // ── 선택/저장 ──
 function onSlotClick(date, slot) {
-  if (!state.currentUser) { alert("먼저 오른쪽에서 본인 이름을 선택하세요."); return; }
-  if (state.isAdmin) { alert("관리자 계정은 조회 전용입니다. 개인시간 신청은 팀원 계정에서 해주세요."); return; }
+  if (state.role === "viewer") { alert("조회 전용 계정입니다. 편집은 팀원 또는 관리자 계정에서 가능합니다."); return; }
+  if (!state.editTarget) {
+    alert(state.role === "admin" ? "먼저 오른쪽에서 편집할 팀원을 선택하세요." : "먼저 오른쪽에서 본인 이름을 선택하세요.");
+    return;
+  }
   if (isStaged(date, slot)) { state.pending.delete(key(date, slot)); renderGrid(); renderSaveBar(); return; }
-  if (iBlocked(date, slot)) { alert("이미 신청한 시간입니다. 취소는 오른쪽 목록의 ✕ 를 눌러주세요."); return; }
+  if (targetBlocked(date, slot)) { alert("이미 신청된 시간입니다. 취소는 오른쪽 목록의 ✕ 를 눌러주세요."); return; }
   const req = requiredFor(slot);
   if (isFull(date, slot, req.required)) { alert(`이 시간은 이미 최대 인원(${maxBlockable(req.required)}명)이 신청해 마감되었어요.`); return; }
   state.pending.add(key(date, slot));
@@ -234,7 +266,8 @@ function onSlotClick(date, slot) {
 
 function openReasonModal() {
   if (state.pending.size === 0) return;
-  document.getElementById("reasonSummary").textContent = `선택한 ${state.pending.size}개 시간(${fmtDur(state.pending.size * 15)})에 적용됩니다.`;
+  const who = state.role === "admin" ? `${state.editTarget}의 ` : "";
+  document.getElementById("reasonSummary").textContent = `${who}선택한 ${state.pending.size}개 시간(${fmtDur(state.pending.size * 15)})에 적용됩니다.`;
   document.getElementById("reasonInput").value = "";
   document.getElementById("reasonError").hidden = true;
   document.getElementById("reasonModal").hidden = false;
@@ -246,6 +279,7 @@ async function commitReason() {
   if (!reason) { document.getElementById("reasonError").hidden = false; return; }
   const groupId = "g" + Date.now();
   const slots = [...state.pending];
+  const member = state.editTarget;
   document.getElementById("reasonModal").hidden = true;
   state.pending.clear();
   renderSaveBar();
@@ -254,15 +288,15 @@ async function commitReason() {
   for (const k of slots) {
     const [date, slot] = k.split("|");
     const req = requiredFor(slot);
-    if (isFull(date, slot, req.required) && !iBlocked(date, slot)) { skipped++; continue; } // 저장 직전 재확인
-    try { await setBlock({ date, slot, member: state.currentUser, reason, groupId }, true); }
+    if (isFull(date, slot, req.required) && !targetBlocked(date, slot)) { skipped++; continue; }
+    try { await setBlock({ date, slot, member, reason, groupId }, true); }
     catch (e) { console.error(e); }
   }
   if (skipped > 0) alert(`${skipped}개 시간은 그 사이 마감되어 제외했어요.`);
 }
 
 async function removeGroup(groupId) {
-  const targets = state.records.filter((r) => r.member === state.currentUser && (r.groupId || `s_${r.date}_${r.slot}`) === groupId);
+  const targets = state.records.filter((r) => r.member === state.editTarget && (r.groupId || `s_${r.date}_${r.slot}`) === groupId);
   for (const r of targets) { try { await setBlock(r, false); } catch (e) { console.error(e); } }
 }
 
@@ -290,12 +324,14 @@ function wireEvents() {
 
   document.getElementById("memberPicker").addEventListener("click", (e) => {
     const b = e.target.closest("button"); if (!b) return;
-    state.currentUser = b.dataset.member;
-    localStorage.setItem("cx_user", state.currentUser);
-    render();
+    const name = b.dataset.member;
+    state.pending.clear();
+    if (state.role === "admin") { state.editTarget = name; }
+    else { state.currentUser = name; state.editTarget = name; localStorage.setItem("cx_user", name); }
+    render(); renderSaveBar();
   });
   document.getElementById("changeUserBtn").addEventListener("click", () => {
-    state.currentUser = null; localStorage.removeItem("cx_user"); state.pending.clear(); render(); renderSaveBar();
+    state.currentUser = null; state.editTarget = null; localStorage.removeItem("cx_user"); state.pending.clear(); render(); renderSaveBar();
   });
 
   document.getElementById("myBlocks").addEventListener("click", (e) => {
@@ -316,25 +352,42 @@ function wireEvents() {
   document.getElementById("logoutBtn").addEventListener("click", () => signOutUser());
 }
 
+// ── 신원 확정 ──
+function resolveIdentity(user) {
+  const id = identityByEmail(user.email);
+  if (id) return { role: id.role, name: id.name };
+  if (user.email && user.email.trim().toLowerCase().endsWith("@" + ALLOWED_DOMAIN))
+    return { role: "viewer", name: user.displayName || user.email.split("@")[0] };
+  return { role: "denied", name: null };
+}
+
 // ── 화면 전환 ──
 function showApp(user) {
   state.authUser = user;
+  if (getMode() === "firebase" && user && !user.local) {
+    const who = resolveIdentity(user);
+    if (who.role === "denied") { signOutUser(); showLogin(`이 계정(${user.email || ""})은 접근 권한이 없습니다. @${ALLOWED_DOMAIN} 계정으로 로그인해 주세요.`); return; }
+    state.currentUser = who.name;
+    state.role = who.role;
+    state.identityLocked = true;
+    state.editTarget = who.role === "member" ? who.name : null; // 관리자/뷰어는 대상 별도 선택
+    document.getElementById("account").hidden = false;
+    document.getElementById("account").textContent = user.email || user.displayName || "";
+    document.getElementById("logoutBtn").hidden = false;
+  } else {
+    // 로컬 데모: 수동 선택, 편집 가능
+    state.role = "member";
+    state.identityLocked = false;
+  }
   document.getElementById("loginScreen").hidden = true;
   document.getElementById("app").hidden = false;
-  const acc = document.getElementById("account");
-  if (getMode() === "firebase" && user && !user.local) {
-    acc.hidden = false; acc.textContent = user.email || user.displayName || "";
-    document.getElementById("logoutBtn").hidden = false;
-    // 로그인 계정(이메일)으로 본인 확정 — 매칭되면 자동 선택 + 잠금
-    const id = identityByEmail(user.email);
-    if (id) { state.currentUser = id.name; state.identityLocked = true; state.isAdmin = id.role === "admin"; }
-    else { state.currentUser = null; state.identityLocked = false; state.isAdmin = false; } // 미등록 계정은 직접 선택
-  }
   render(); resubscribe();
 }
-function showLogin() {
+function showLogin(errorMsg) {
   document.getElementById("app").hidden = true;
   document.getElementById("loginScreen").hidden = false;
+  const err = document.getElementById("loginError");
+  if (errorMsg) { err.textContent = errorMsg; err.hidden = false; }
 }
 
 // ── 시작 ──
@@ -346,14 +399,9 @@ function showLogin() {
   else { badge.textContent = "로컬 데모"; badge.className = "mode-badge local"; }
 
   if (DEV_BYPASS) {
-    // ?dev=someone@x.com 이면 그 이메일로 로그인한 것처럼 시뮬레이션 (이메일 매핑 테스트용)
     const devEmail = new URLSearchParams(location.search).get("dev");
     showApp(devEmail && devEmail.includes("@") ? { email: devEmail } : { local: true });
     return;
   }
-
-  onAuth((user) => {
-    if (user) showApp(user);
-    else showLogin();
-  });
+  onAuth((user) => { if (user) showApp(user); else showLogin(); });
 })();

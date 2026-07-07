@@ -76,20 +76,20 @@
       <aside class="side">
         <!-- 이름 미선택 -->
         <section class="panel" id="memberPanel">
-          <h2 class="panel-title">나는 누구?</h2>
-          <p class="panel-sub">이름을 선택하면 시간대를 눌러 개인시간을 신청할 수 있어요.</p>
+          <h2 class="panel-title" id="memberPanelTitle">나는 누구?</h2>
+          <p class="panel-sub" id="memberPanelSub">이름을 선택하면 시간대를 눌러 개인시간을 신청할 수 있어요.</p>
           <div class="member-picker" id="memberPicker"></div>
         </section>
 
         <!-- 이름 선택 후 환영 박스 -->
         <section class="panel welcome-box" id="welcomeBox" hidden>
           <div class="avatar" id="wbAvatar"></div>
-          <div class="wb-text"><strong id="wbName"></strong>님, 환영합니다!</div>
+          <div class="wb-text"><strong id="wbName"></strong>님, 환영합니다! <span id="wbRole" class="role-badge" hidden></span></div>
           <button id="changeUserBtn" class="link-btn">이름 바꾸기</button>
         </section>
 
         <section class="panel" id="myPanel" hidden>
-          <h2 class="panel-title">내 개인시간 신청 <span class="count" id="myCount">0</span></h2>
+          <h2 class="panel-title"><span id="myPanelTitle">내 개인시간 신청</span> <span class="count" id="myCount">0</span></h2>
           <p class="panel-sub" id="myBlocksHint">표시된 기간에 신청한 시간이 없습니다.</p>
           <ul class="my-blocks" id="myBlocks"></ul>
         </section>

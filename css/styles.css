@@ -173,6 +173,9 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: 500; color: var(--text); display: flex; align-items: center; gap: 7px;
 }
 .member-picker button .dot { width: 10px; height: 10px; border-radius: 50%; }
+.member-picker button.active { border-color: var(--accent); background: #f2f3ff; color: var(--accent); font-weight: 700; }
+
+.role-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #eef0ff; color: var(--accent); }
 
 /* 환영 박스 */
 .welcome-box { display: flex; align-items: center; gap: 12px; background: var(--bg); border-radius: 14px; padding: 14px 16px; }

@@ -32,12 +32,16 @@ export const MEMBERS = [
   { name: "박혜정", color: "#3b82f6", email: "hj.park@olit.co.kr" },
 ];
 
-// 관리자 (조회 전용). 로그인하면 "OOO님, 환영합니다!"는 뜨지만 개인시간 신청은 불가.
+// 관리자 (편집 권한 풀). 팀원을 골라 그 사람의 개인시간을 추가/취소/조정할 수 있음.
 export const ADMINS = [
-  { name: "김현지", color: "#64748b", email: "hj.kim@olit.co.kr" },
-  { name: "박근영", color: "#64748b", email: "ky.park@olit.co.kr" },
-  { name: "올릿",   color: "#64748b", email: "olit@olit.co.kr" },
+  { name: "김현지",   color: "#64748b", email: "hj.kim@olit.co.kr" },
+  { name: "박근영",   color: "#64748b", email: "ky.park@olit.co.kr" },
+  { name: "올릿",     color: "#64748b", email: "olit@olit.co.kr" },
+  { name: "올릿CS",   color: "#64748b", email: "help_cs@olit.co.kr" },
 ];
+
+// 이 도메인 계정은 로그인 시 최소 "조회 전용"으로 접근 가능
+export const ALLOWED_DOMAIN = "olit.co.kr";
 
 // 이메일 → 신원 찾기 (대소문자·공백 무시). role: "member" | "admin"
 export function identityByEmail(email) {
