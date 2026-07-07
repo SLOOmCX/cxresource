@@ -1,0 +1,8 @@
+# 로컬 설정/캐시
+.DS_Store
+Thumbs.db
+*.log
+
+# 에디터
+.vscode/
+.idea/

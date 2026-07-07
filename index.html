@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CX 리소스</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- 상단 바 -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="logo">CX 리소스</h1>
+        <div class="view-toggle" id="viewToggle">
+          <button data-view="daily">데일리</button>
+          <button data-view="weekly">주간</button>
+          <button data-view="monthly" class="active">월간</button>
+        </div>
+      </div>
+
+      <div class="topbar-center">
+        <button class="nav-btn" id="prevBtn" aria-label="이전">&lsaquo;</button>
+        <span class="date-label" id="dateLabel">—</span>
+        <button class="nav-btn" id="nextBtn" aria-label="다음">&rsaquo;</button>
+        <button class="today-btn" id="todayBtn">오늘</button>
+      </div>
+
+      <div class="topbar-right">
+        <span class="mode-badge" id="modeBadge" title="데이터 저장 위치">···</span>
+        <button class="refresh-btn" id="refreshBtn">⟳ 새로고침</button>
+      </div>
+    </header>
+
+    <div class="body">
+      <!-- 좌: 시간표 -->
+      <main class="grid-wrap">
+        <div class="legend">
+          <span class="lg lg-short">부족</span>
+          <span class="lg lg-p1">+1 여유</span>
+          <span class="lg lg-p2">+2 여유</span>
+          <span class="legend-note">필요 대비 투입 가능 인원 비교</span>
+        </div>
+        <div class="grid-scroll" id="gridScroll">
+          <div id="grid" class="grid"></div>
+        </div>
+      </main>
+
+      <!-- 우: 사이드 패널 -->
+      <aside class="side">
+        <section class="panel">
+          <h2 class="panel-title">나는 누구?</h2>
+          <p class="panel-sub">이름을 선택하면 시간대를 눌러 개인시간을 블락할 수 있어요.</p>
+          <div class="member-picker" id="memberPicker"></div>
+        </section>
+
+        <section class="panel">
+          <h2 class="panel-title">개인시간 신청 <span class="count" id="myCount">0</span></h2>
+          <p class="panel-sub" id="myBlocksHint">선택한 시간이 여기에 표시됩니다.</p>
+          <ul class="my-blocks" id="myBlocks"></ul>
+        </section>
+
+        <section class="panel">
+          <h2 class="panel-title">팀원</h2>
+          <ul class="member-legend" id="memberLegend"></ul>
+        </section>
+      </aside>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
