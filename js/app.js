@@ -1,4 +1,4 @@
-import { MEMBERS } from "./config.js";
+import { MEMBERS, ADMINS, identityByEmail } from "./config.js";
 import { SLOTS, requiredFor, toMin } from "./schedule.js";
 import { initData, getMode, subscribeRange, setBlock, onAuth, signInGoogle, signOutUser } from "./data.js";
 
@@ -13,6 +13,8 @@ const state = {
   anchor: new Date(),
   authUser: null,
   currentUser: localStorage.getItem("cx_user") || null,
+  identityLocked: false,    // 이메일로 본인이 확정되면 true (이름 변경 불가)
+  isAdmin: false,           // 관리자(조회 전용) 계정
   records: [],              // 현재 범위의 블락 전체
   bySlot: new Map(),        // key -> [record]
   pending: new Set(),       // 선택 중 'date|slot'
@@ -44,6 +46,8 @@ const maxBlockable = (required) => TOTAL - required;           // 이 시간에 
 const isFull = (date, slot, required) => blockedCount(date, slot) >= maxBlockable(required);
 const iBlocked = (date, slot) => state.currentUser && recordsAt(date, slot).some((r) => r.member === state.currentUser);
 const isStaged = (date, slot) => state.pending.has(key(date, slot));
+
+const colorOf = (name) => (MEMBERS.find((m) => m.name === name) || ADMINS.find((a) => a.name === name))?.color || "#888";
 
 function fmtDur(mins) {
   const h = Math.floor(mins / 60), m = mins % 60;
@@ -146,11 +150,19 @@ function renderSide() {
   ).join("");
 
   if (has) {
-    const me = MEMBERS.find((m) => m.name === state.currentUser);
     document.getElementById("wbAvatar").textContent = state.currentUser.slice(-2);
-    document.getElementById("wbAvatar").style.background = me?.color || "#888";
+    document.getElementById("wbAvatar").style.background = colorOf(state.currentUser);
     document.getElementById("wbName").textContent = state.currentUser;
-    renderMyBlocks();
+    document.getElementById("changeUserBtn").hidden = state.identityLocked; // 이메일 확정이면 변경 숨김
+    if (state.isAdmin) {
+      document.getElementById("myCount").hidden = true;
+      document.getElementById("myBlocksHint").hidden = false;
+      document.getElementById("myBlocksHint").textContent = "조회 전용 관리자 계정입니다. (개인시간 신청 불가)";
+      document.getElementById("myBlocks").innerHTML = "";
+    } else {
+      document.getElementById("myCount").hidden = false;
+      renderMyBlocks();
+    }
   }
 }
 
@@ -211,6 +223,7 @@ function resubscribe() {
 // ── 선택/저장 ──
 function onSlotClick(date, slot) {
   if (!state.currentUser) { alert("먼저 오른쪽에서 본인 이름을 선택하세요."); return; }
+  if (state.isAdmin) { alert("관리자 계정은 조회 전용입니다. 개인시간 신청은 팀원 계정에서 해주세요."); return; }
   if (isStaged(date, slot)) { state.pending.delete(key(date, slot)); renderGrid(); renderSaveBar(); return; }
   if (iBlocked(date, slot)) { alert("이미 신청한 시간입니다. 취소는 오른쪽 목록의 ✕ 를 눌러주세요."); return; }
   const req = requiredFor(slot);
@@ -312,6 +325,10 @@ function showApp(user) {
   if (getMode() === "firebase" && user && !user.local) {
     acc.hidden = false; acc.textContent = user.email || user.displayName || "";
     document.getElementById("logoutBtn").hidden = false;
+    // 로그인 계정(이메일)으로 본인 확정 — 매칭되면 자동 선택 + 잠금
+    const id = identityByEmail(user.email);
+    if (id) { state.currentUser = id.name; state.identityLocked = true; state.isAdmin = id.role === "admin"; }
+    else { state.currentUser = null; state.identityLocked = false; state.isAdmin = false; } // 미등록 계정은 직접 선택
   }
   render(); resubscribe();
 }
@@ -328,7 +345,12 @@ function showLogin() {
   if (getMode() === "firebase") { badge.textContent = "실시간 공유"; badge.className = "mode-badge live"; }
   else { badge.textContent = "로컬 데모"; badge.className = "mode-badge local"; }
 
-  if (DEV_BYPASS) { showApp({ local: true }); return; }
+  if (DEV_BYPASS) {
+    // ?dev=someone@x.com 이면 그 이메일로 로그인한 것처럼 시뮬레이션 (이메일 매핑 테스트용)
+    const devEmail = new URLSearchParams(location.search).get("dev");
+    showApp(devEmail && devEmail.includes("@") ? { email: devEmail } : { local: true });
+    return;
+  }
 
   onAuth((user) => {
     if (user) showApp(user);

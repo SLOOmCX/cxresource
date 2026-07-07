@@ -22,11 +22,30 @@ export const firebaseConfig = {
   measurementId: "G-F6H06CDE4K",
 };
 
-// 팀원 목록 (이름과 색상). 순서/색상 자유롭게 변경 가능.
+// 팀원 목록 (이름 · 색상 · 구글 이메일).
+//  등록된 이메일로 로그인하면 자동으로 본인 이름이 뜨고 다른 사람으로 못 바꿈.
 export const MEMBERS = [
-  { name: "조건",   color: "#6366f1" },
-  { name: "박가영", color: "#ec4899" },
-  { name: "전승리", color: "#14b8a6" },
-  { name: "허윤선", color: "#f59e0b" },
-  { name: "박혜정", color: "#3b82f6" },
+  { name: "조건",   color: "#6366f1", email: "g.jo@olit.co.kr" },
+  { name: "박가영", color: "#ec4899", email: "gy.park@olit.co.kr" },
+  { name: "전승리", color: "#14b8a6", email: "sl.jun@olit.co.kr" },
+  { name: "허윤선", color: "#f59e0b", email: "ys.huh@olit.co.kr" },
+  { name: "박혜정", color: "#3b82f6", email: "hj.park@olit.co.kr" },
 ];
+
+// 관리자 (조회 전용). 로그인하면 "OOO님, 환영합니다!"는 뜨지만 개인시간 신청은 불가.
+export const ADMINS = [
+  { name: "김현지", color: "#64748b", email: "hj.kim@olit.co.kr" },
+  { name: "박근영", color: "#64748b", email: "ky.park@olit.co.kr" },
+  { name: "올릿",   color: "#64748b", email: "olit@olit.co.kr" },
+];
+
+// 이메일 → 신원 찾기 (대소문자·공백 무시). role: "member" | "admin"
+export function identityByEmail(email) {
+  if (!email) return null;
+  const e = email.trim().toLowerCase();
+  const m = MEMBERS.find((x) => x.email && x.email.trim().toLowerCase() === e);
+  if (m) return { ...m, role: "member" };
+  const a = ADMINS.find((x) => x.email && x.email.trim().toLowerCase() === e);
+  if (a) return { ...a, role: "admin" };
+  return null;
+}
