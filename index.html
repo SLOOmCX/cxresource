@@ -27,9 +27,9 @@
       <div class="topbar-left">
         <h1 class="logo">CX팀 리소스 캘린더</h1>
         <div class="view-toggle" id="viewToggle">
-          <button data-view="daily">데일리</button>
+          <button data-view="daily" class="active">데일리</button>
           <button data-view="weekly">주간</button>
-          <button data-view="monthly" class="active">월간</button>
+          <button data-view="monthly">월간</button>
         </div>
       </div>
 
@@ -114,6 +114,12 @@
         <button id="reasonConfirm" class="primary-btn">저장</button>
       </div>
     </div>
+  </div>
+
+  <!-- 신청자 명단 팝오버 (주간·월간에서 숫자 클릭 시) -->
+  <div id="blockersPopover" class="popover" hidden>
+    <div class="pop-head" id="popHead"></div>
+    <ul class="pop-list" id="popList"></ul>
   </div>
 
   <script type="module" src="js/app.js"></script>

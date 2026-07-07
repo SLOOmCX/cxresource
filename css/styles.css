@@ -213,6 +213,21 @@ button { font-family: inherit; cursor: pointer; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .modal .ghost-btn { border: 1px solid var(--border); color: var(--text); }
 
+/* ── 신청자 팝오버 ── */
+.popover {
+  position: fixed; z-index: 80; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  min-width: 180px; max-width: 280px; padding: 10px 12px;
+}
+.pop-head { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+.pop-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; max-height: 260px; overflow-y: auto; }
+.pop-list li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.pop-list li .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.pop-list li .nm { font-weight: 600; }
+.pop-list li .rsn { color: var(--muted); font-size: 11px; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px; }
+.pop-list li.empty { color: var(--muted); justify-content: center; }
+
 @media (max-width: 900px) {
   .side { display: none; }
 }

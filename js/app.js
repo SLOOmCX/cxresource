@@ -9,7 +9,7 @@ const TOTAL = MEMBERS.length;
 const DEV_BYPASS = location.hostname === "localhost" && new URLSearchParams(location.search).has("dev");
 
 const state = {
-  view: "monthly",
+  view: "daily",
   anchor: new Date(),
   authUser: null,
   currentUser: localStorage.getItem("cx_user") || null,  // 로그인한 사람의 표시 이름
@@ -53,6 +53,9 @@ const colorOf = (name) => (MEMBERS.find((m) => m.name === name) || ADMINS.find((
 
 function fmtDur(mins) { const h = Math.floor(mins / 60), m = mins % 60; return `${h ? h + "시간" : ""}${m ? (h ? " " : "") + m + "분" : ""}` || "0분"; }
 const endOf = (slot) => { const t = toMin(slot) + 15; return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; };
+function fmtDateK(dateStr) { const [y, mo, da] = dateStr.split("-").map(Number); return `${mo}/${da} (${WD[new Date(y, mo - 1, da).getDay()]})`; }
+// 신청 묶음 키: 반드시 날짜 단위로 분리 (groupId 가 여러 날에 걸쳐도 날짜별로 나뉨)
+const groupKey = (r) => `${r.date}__${r.groupId || "s_" + r.slot}`;
 
 // ── 렌더 ──
 function render() {
@@ -204,7 +207,7 @@ function renderMyBlocks() {
   const groups = new Map();
   for (const r of state.records) {
     if (r.member !== state.editTarget) continue;
-    const g = r.groupId || `s_${r.date}_${r.slot}`;
+    const g = groupKey(r);
     if (!groups.has(g)) groups.set(g, []);
     groups.get(g).push(r);
   }
@@ -264,6 +267,25 @@ function onSlotClick(date, slot) {
   renderGrid(); renderSaveBar();
 }
 
+// 주간·월간: 숫자 셀 클릭 → 그 시간대 신청자 명단 팝오버
+function showBlockers(date, slot, cellEl) {
+  const pop = document.getElementById("blockersPopover");
+  const recs = [...recordsAt(date, slot)].sort(
+    (a, b) => MEMBERS.findIndex((m) => m.name === a.member) - MEMBERS.findIndex((m) => m.name === b.member)
+  );
+  document.getElementById("popHead").textContent = `${fmtDateK(date)} ${slot}~${endOf(slot)} · 신청 ${recs.length}명`;
+  document.getElementById("popList").innerHTML = recs.length
+    ? recs.map((r) => `<li><span class="dot" style="background:${colorOf(r.member)}"></span><span class="nm">${r.member}</span>${r.reason ? `<span class="rsn" title="${escapeHtml(r.reason)}">${escapeHtml(r.reason)}</span>` : ""}</li>`).join("")
+    : `<li class="empty">신청자 없음</li>`;
+  pop.hidden = false;
+  const rect = cellEl.getBoundingClientRect();
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let left = rect.right + 8; if (left + pw > innerWidth) left = rect.left - pw - 8; if (left < 8) left = 8;
+  let top = rect.top; if (top + ph > innerHeight) top = innerHeight - ph - 8; if (top < 8) top = 8;
+  pop.style.left = left + "px"; pop.style.top = top + "px";
+}
+function hidePopover() { document.getElementById("blockersPopover").hidden = true; }
+
 function openReasonModal() {
   if (state.pending.size === 0) return;
   const who = state.role === "admin" ? `${state.editTarget}의 ` : "";
@@ -296,7 +318,7 @@ async function commitReason() {
 }
 
 async function removeGroup(groupId) {
-  const targets = state.records.filter((r) => r.member === state.editTarget && (r.groupId || `s_${r.date}_${r.slot}`) === groupId);
+  const targets = state.records.filter((r) => r.member === state.editTarget && groupKey(r) === groupId);
   for (const r of targets) { try { await setBlock(r, false); } catch (e) { console.error(e); } }
 }
 
@@ -304,22 +326,29 @@ async function removeGroup(groupId) {
 function wireEvents() {
   document.getElementById("viewToggle").addEventListener("click", (e) => {
     const b = e.target.closest("button"); if (!b) return;
-    state.view = b.dataset.view; state.pending.clear(); render(); resubscribe();
+    state.view = b.dataset.view; state.pending.clear(); hidePopover(); render(); resubscribe();
   });
   const step = (dir) => {
     if (state.view === "daily") state.anchor = addDays(state.anchor, dir);
     else if (state.view === "weekly") state.anchor = addDays(state.anchor, dir * 7);
     else state.anchor = new Date(state.anchor.getFullYear(), state.anchor.getMonth() + dir, 1);
-    state.pending.clear(); render(); resubscribe();
+    state.pending.clear(); hidePopover(); render(); resubscribe();
   };
   document.getElementById("prevBtn").addEventListener("click", () => step(-1));
   document.getElementById("nextBtn").addEventListener("click", () => step(1));
-  document.getElementById("todayBtn").addEventListener("click", () => { state.anchor = new Date(); state.pending.clear(); render(); resubscribe(); });
+  document.getElementById("todayBtn").addEventListener("click", () => { state.anchor = new Date(); state.pending.clear(); hidePopover(); render(); resubscribe(); });
   document.getElementById("refreshBtn").addEventListener("click", () => resubscribe());
 
   document.getElementById("grid").addEventListener("click", (e) => {
     const cell = e.target.closest(".slot"); if (!cell || cell.classList.contains("locked")) return;
-    onSlotClick(cell.dataset.date, cell.dataset.slot);
+    if (state.view === "daily") onSlotClick(cell.dataset.date, cell.dataset.slot);
+    else showBlockers(cell.dataset.date, cell.dataset.slot, cell);   // 주간·월간: 명단 보기
+  });
+  // 팝오버 바깥 클릭 시 닫기 (슬롯 클릭은 위 핸들러가 처리)
+  document.addEventListener("click", (e) => {
+    const pop = document.getElementById("blockersPopover");
+    if (pop.hidden || pop.contains(e.target) || e.target.closest(".slot")) return;
+    hidePopover();
   });
 
   document.getElementById("memberPicker").addEventListener("click", (e) => {
