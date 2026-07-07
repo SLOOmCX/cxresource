@@ -30,6 +30,7 @@ export const MEMBERS = [
   { name: "전승리", color: "#14b8a6", email: "sl.jun@olit.co.kr" },
   { name: "허윤선", color: "#f59e0b", email: "ys.huh@olit.co.kr" },
   { name: "박혜정", color: "#3b82f6", email: "hj.park@olit.co.kr" },
+  { name: "올릿CS", color: "#0ea5e9", email: "help_cs@olit.co.kr" },
 ];
 
 // 관리자 (편집 권한 풀). 팀원을 골라 그 사람의 개인시간을 추가/취소/조정할 수 있음.
@@ -37,7 +38,6 @@ export const ADMINS = [
   { name: "김현지",   color: "#64748b", email: "hj.kim@olit.co.kr" },
   { name: "박근영",   color: "#64748b", email: "ky.park@olit.co.kr" },
   { name: "올릿",     color: "#64748b", email: "olit@olit.co.kr" },
-  { name: "올릿CS",   color: "#64748b", email: "help_cs@olit.co.kr" },
 ];
 
 // 이 도메인 계정은 로그인 시 최소 "조회 전용"으로 접근 가능
