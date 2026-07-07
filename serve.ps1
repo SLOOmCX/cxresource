@@ -1,6 +1,6 @@
 # 개발용 정적 파일 서버 (Node/Python 없이 미리보기용)
 # 사용: powershell -ExecutionPolicy Bypass -File serve.ps1  →  http://localhost:5500
-param([int]$Port = 5500)
+param([int]$Port = $(if ($env:PORT) { [int]$env:PORT } else { 5500 }))
 
 $root = $PSScriptRoot
 $mime = @{

@@ -2,10 +2,10 @@
 //  시간대 & 필요 인원 규칙
 // ────────────────────────────────────────────────────────────
 
-// 09:00 ~ 16:45 까지 15분 단위 슬롯 (17:00 은 종료 시각)
+// 09:00 ~ 17:00 까지 15분 단위 슬롯
 export const SLOTS = (() => {
   const out = [];
-  for (let m = 9 * 60; m < 17 * 60; m += 15) {
+  for (let m = 9 * 60; m <= 17 * 60; m += 15) {
     const h = String(Math.floor(m / 60)).padStart(2, "0");
     const mm = String(m % 60).padStart(2, "0");
     out.push(`${h}:${mm}`);
@@ -35,7 +35,7 @@ export function requiredFor(slot) {
     return { locked: true, required: 0, label: "점심" };
   if (m >= 13 * 60 + 30 && m < 14 * 60)           // 13:30 ~ 14:00
     return { locked: false, required: 3, label: "3" };
-  if (m >= 14 * 60 && m < 17 * 60)                // 14:00 ~ 17:00
+  if (m >= 14 * 60 && m <= 17 * 60)               // 14:00 ~ 17:00
     return { locked: false, required: 2, label: "2" };
   return { locked: false, required: 0, label: "" };
 }
