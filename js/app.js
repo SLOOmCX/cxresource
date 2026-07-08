@@ -3,7 +3,9 @@ import { SLOTS, requiredFor, toMin } from "./schedule.js";
 import { initData, getMode, subscribeRange, setBlock, onAuth, signInGoogle, signOutUser } from "./data.js";
 
 const WD = ["일", "월", "화", "수", "목", "금", "토"];
-const TOTAL = MEMBERS.length;
+const POOL = MEMBERS.filter((m) => !m.test);       // "가능 인원" 집계 대상 (테스트 계정 제외)
+const TOTAL = POOL.length;
+const isTestMember = (name) => !!MEMBERS.find((m) => m.name === name)?.test;
 
 // localhost 에서 ?dev(=email) 로 로그인 게이트를 건너뛰는 개발용 우회 (운영 도메인에서는 절대 동작 안 함)
 const DEV_BYPASS = location.hostname === "localhost" && new URLSearchParams(location.search).has("dev");
@@ -43,7 +45,8 @@ function visibleDays() {
 // ── 블락 조회 ──
 const key = (date, slot) => `${date}|${slot}`;
 const recordsAt = (date, slot) => state.bySlot.get(key(date, slot)) || [];
-const blockedCount = (date, slot) => recordsAt(date, slot).length;
+// 가능 인원/마감 계산은 실제 팀원만 카운트 (테스트 계정 제외)
+const blockedCount = (date, slot) => recordsAt(date, slot).filter((r) => !isTestMember(r.member)).length;
 const slotMax = (slot) => requiredFor(slot).maxBlock;          // 그 시간 최대 블락 인원
 const isFull = (date, slot) => blockedCount(date, slot) >= slotMax(slot);
 const targetBlocked = (date, slot) => state.editTarget && recordsAt(date, slot).some((r) => r.member === state.editTarget);
@@ -110,6 +113,7 @@ function renderGrid() {
       if (req.locked) { cells.push(`<div class="gcell slot locked"></div>`); continue; }
 
       const recs = recordsAt(date, slot);
+      const bc = blockedCount(date, slot);        // 실제 팀원 기준(테스트 제외)
       const full = isFull(date, slot);
       const mine = targetBlocked(date, slot);
       const staged = isStaged(date, slot);
@@ -123,10 +127,10 @@ function renderGrid() {
           const rsn = r.reason ? `<span class="rsn">· ${escapeHtml(r.reason)}</span>` : "";
           return `<span class="chip" style="background:${colorOf(r.member)}" title="${escapeHtml(r.reason || "")}">${r.member}${rsn}</span>`;
         }).join("");
-        const tag = full ? "마감" : `가능 ${TOTAL - recs.length}/${TOTAL}`;
+        const tag = full ? "마감" : `가능 ${TOTAL - bc}/${TOTAL}`;
         cells.push(`<div class="gcell slot daily ${cls}" data-date="${date}" data-slot="${slot}">${chips}<span class="avail-tag">${tag}</span></div>`);
       } else {
-        const label = full ? "마감" : (TOTAL - recs.length);
+        const label = full ? "마감" : (TOTAL - bc);
         cells.push(`<div class="gcell slot ${cls}" data-date="${date}" data-slot="${slot}"><span class="avail">${label}</span></div>`);
       }
     }

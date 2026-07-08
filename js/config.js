@@ -30,7 +30,8 @@ export const MEMBERS = [
   { name: "전승리", color: "#14b8a6", email: "sl.jun@olit.co.kr" },
   { name: "허윤선", color: "#f59e0b", email: "ys.huh@olit.co.kr" },
   { name: "박혜정", color: "#3b82f6", email: "hj.park@olit.co.kr" },
-  { name: "올릿CS", color: "#0ea5e9", email: "help_cs@olit.co.kr" },
+  // 올릿CS: 팀원 권한(블락 가능)이지만 테스트 계정이라 "가능 인원" 집계에서는 제외 (숫자는 5명 기준)
+  { name: "올릿CS", color: "#0ea5e9", email: "help_cs@olit.co.kr", test: true },
 ];
 
 // 관리자 (편집 권한 풀). 팀원을 골라 그 사람의 개인시간을 추가/취소/조정할 수 있음.
