@@ -44,8 +44,8 @@ function visibleDays() {
 const key = (date, slot) => `${date}|${slot}`;
 const recordsAt = (date, slot) => state.bySlot.get(key(date, slot)) || [];
 const blockedCount = (date, slot) => recordsAt(date, slot).length;
-const maxBlockable = (required) => TOTAL - required;
-const isFull = (date, slot, required) => blockedCount(date, slot) >= maxBlockable(required);
+const slotMax = (slot) => requiredFor(slot).maxBlock;          // 그 시간 최대 블락 인원
+const isFull = (date, slot) => blockedCount(date, slot) >= slotMax(slot);
 const targetBlocked = (date, slot) => state.editTarget && recordsAt(date, slot).some((r) => r.member === state.editTarget);
 const isStaged = (date, slot) => state.pending.has(key(date, slot));
 
@@ -110,7 +110,7 @@ function renderGrid() {
       if (req.locked) { cells.push(`<div class="gcell slot locked"></div>`); continue; }
 
       const recs = recordsAt(date, slot);
-      const full = isFull(date, slot, req.required);
+      const full = isFull(date, slot);
       const mine = targetBlocked(date, slot);
       const staged = isStaged(date, slot);
       let cls = availClass(date, slot, req.required);
@@ -234,7 +234,7 @@ function renderSaveBar() {
   const bar = document.getElementById("saveBar");
   const n = state.pending.size;
   bar.hidden = n === 0;
-  if (n > 0) document.getElementById("saveBarText").textContent = `선택한 시간 ${n}개 (${fmtDur(n * 15)})` + (state.role === "admin" ? ` · ${state.editTarget}` : "");
+  if (n > 0) document.getElementById("saveBarText").textContent = `선택한 시간 ${n}개 (${fmtDur(n * 15)}) · ${state.editTarget || ""}`;
 }
 
 function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
@@ -261,8 +261,7 @@ function onSlotClick(date, slot) {
   }
   if (isStaged(date, slot)) { state.pending.delete(key(date, slot)); renderGrid(); renderSaveBar(); return; }
   if (targetBlocked(date, slot)) { alert("이미 신청된 시간입니다. 취소는 오른쪽 목록의 ✕ 를 눌러주세요."); return; }
-  const req = requiredFor(slot);
-  if (isFull(date, slot, req.required)) { alert(`이 시간은 이미 최대 인원(${maxBlockable(req.required)}명)이 신청해 마감되었어요.`); return; }
+  if (isFull(date, slot)) { alert(`이 시간은 이미 최대 인원(${slotMax(slot)}명)이 신청해 마감되었어요.`); return; }
   state.pending.add(key(date, slot));
   renderGrid(); renderSaveBar();
 }
@@ -309,8 +308,7 @@ async function commitReason() {
   let skipped = 0;
   for (const k of slots) {
     const [date, slot] = k.split("|");
-    const req = requiredFor(slot);
-    if (isFull(date, slot, req.required) && !targetBlocked(date, slot)) { skipped++; continue; }
+    if (isFull(date, slot) && !targetBlocked(date, slot)) { skipped++; continue; }
     try { await setBlock({ date, slot, member, reason, groupId }, true); }
     catch (e) { console.error(e); }
   }
@@ -355,7 +353,7 @@ function wireEvents() {
     const b = e.target.closest("button"); if (!b) return;
     const name = b.dataset.member;
     state.pending.clear();
-    if (state.role === "admin") { state.editTarget = name; }
+    if (state.role === "admin") { state.editTarget = (state.editTarget === name ? null : name); } // 토글
     else { state.currentUser = name; state.editTarget = name; localStorage.setItem("cx_user", name); }
     render(); renderSaveBar();
   });

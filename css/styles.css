@@ -148,17 +148,17 @@ button { font-family: inherit; cursor: pointer; }
 .slot.daily .avail-tag { margin-left: auto; font-size: 11px; color: var(--muted); font-weight: 700; white-space: nowrap; }
 .slot.daily.mine { box-shadow: inset 3px 0 0 var(--accent); }
 
-/* ── 저장 바 ── */
-.save-bar {
-  position: absolute; left: 18px; right: 12px; bottom: 14px;
-  background: var(--text); color: #fff; border-radius: 12px;
-  padding: 12px 18px; display: flex; align-items: center; justify-content: space-between;
-  box-shadow: 0 8px 24px rgba(0,0,0,.2); z-index: 10;
+/* ── 저장 바 (사이드 카드) ── */
+.save-card {
+  border: 1.5px solid var(--accent); background: #f2f3ff; border-radius: 12px;
+  padding: 14px; margin-bottom: 22px; display: flex; flex-direction: column; gap: 10px;
 }
-.save-bar-actions { display: flex; gap: 8px; }
-.primary-btn { border: 0; background: var(--accent); color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: 600; }
+.sc-line1 { font-size: 13px; font-weight: 700; }
+.sc-actions { display: flex; gap: 8px; }
+.sc-actions .primary-btn { flex: 1; }
+.primary-btn { border: 0; background: var(--accent); color: #fff; padding: 9px 16px; border-radius: 8px; font-weight: 600; }
 .primary-btn:hover { filter: brightness(1.08); }
-.ghost-btn { border: 1px solid rgba(255,255,255,.3); background: transparent; color: #fff; padding: 8px 14px; border-radius: 8px; }
+.ghost-btn { border: 1px solid var(--border); background: #fff; color: var(--text); padding: 9px 14px; border-radius: 8px; }
 
 /* ── 사이드 ── */
 .side { width: 320px; border-left: 1px solid var(--border); background: var(--panel); overflow-y: auto; padding: 16px; }

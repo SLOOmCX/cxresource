@@ -61,15 +61,6 @@
         <div class="grid-scroll" id="gridScroll">
           <div id="grid" class="grid"></div>
         </div>
-
-        <!-- 저장 바 (선택 중일 때) -->
-        <div id="saveBar" class="save-bar" hidden>
-          <span id="saveBarText">선택한 시간 0개</span>
-          <div class="save-bar-actions">
-            <button id="cancelSelBtn" class="ghost-btn">취소</button>
-            <button id="saveSelBtn" class="primary-btn">사유 입력하고 저장</button>
-          </div>
-        </div>
       </main>
 
       <!-- 우: 사이드 패널 -->
@@ -86,6 +77,15 @@
           <div class="avatar" id="wbAvatar"></div>
           <div class="wb-text"><strong id="wbName"></strong>님, 환영합니다! <span id="wbRole" class="role-badge" hidden></span></div>
           <button id="changeUserBtn" class="link-btn">이름 바꾸기</button>
+        </section>
+
+        <!-- 저장 바 (시간 선택 중일 때) -->
+        <section class="save-card" id="saveBar" hidden>
+          <div class="sc-line1" id="saveBarText">선택한 시간 0개</div>
+          <div class="sc-actions">
+            <button id="cancelSelBtn" class="ghost-btn">취소</button>
+            <button id="saveSelBtn" class="primary-btn">사유 입력하고 저장</button>
+          </div>
         </section>
 
         <section class="panel" id="myPanel" hidden>
