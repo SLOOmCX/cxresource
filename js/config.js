@@ -30,7 +30,8 @@ export const MEMBERS = [
   { name: "전승리", color: "#14b8a6", email: "sl.jun@olit.co.kr" },
   { name: "허윤선", color: "#f59e0b", email: "ys.huh@olit.co.kr" },
   { name: "박혜정", color: "#3b82f6", email: "hj.park@olit.co.kr" },
-  // 올릿CS: 팀원 권한(블락 가능)이지만 테스트 계정이라 "가능 인원" 집계에서는 제외 (숫자는 5명 기준)
+  { name: "소현진", color: "#8b5cf6", email: "hj.so@olit.co.kr" },
+  // 올릿CS: 팀원 권한(블락 가능)이지만 테스트 계정이라 "가능 인원" 집계에서는 제외 (숫자는 6명 기준)
   { name: "올릿CS", color: "#0ea5e9", email: "help_cs@olit.co.kr", test: true },
 ];
 
